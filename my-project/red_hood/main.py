@@ -1,11 +1,13 @@
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI()
+
 STORY = {
     "title": "Красная Шапочка",
     "description": "Интерактивная история с перемещением по карте леса",
     "audio_url": "http://127.0.0.1:8000/static/audio/red_hood.mp3",
     "route": [
-        # t - время в миллисекундах (1 сек = 1000 мс)
-        # x, y - координаты на карте (0-100)
-
         {"t": 0, "x": 10, "y": 10, "event": "Начало: Дом мамы, получение корзинки"},
         {"t": 5000, "x": 20, "y": 15, "event": "Выход на тропинку"},
         {"t": 15000, "x": 35, "y": 40, "event": "Вход в густой лес"},
@@ -16,3 +18,12 @@ STORY = {
         {"t": 90000, "x": 95, "y": 95, "event": "Финал: Дом бабушки"}
     ]
 }
+
+# Подключаем раздачу статических файлов (аудио)
+#directory="static" означает, что файлы лежат в папке static в корне проекта
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Эндпоинт для получения данных сказки
+@app.get("/red-hood")
+def get_story():
+    return STORY
