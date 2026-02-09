@@ -1,7 +1,11 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-app = FastAPI()
+app = FastAPI(
+    title="Сказка Красная Шапочка",
+    description="API для управления маршрутом и озвучкой интерактивной сказки",
+    version="1.0.0"
+)
 
 STORY = {
     "title": "Красная Шапочка",
