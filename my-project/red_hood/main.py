@@ -1,32 +1,43 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
+from database import SessionLocal, Story, RoutePoint
 
 app = FastAPI(
     title="Сказка Красная Шапочка",
-    description="API для управления маршрутом и озвучкой интерактивной сказки",
-    version="1.0.0"
+    description="API с данными из PostgreSQL",
+    version="1.1.0"
 )
 
-STORY = {
-    "title": "Красная Шапочка",
-    "description": "Интерактивная история с перемещением по карте леса",
-    "audio_url": "http://127.0.0.1:8000/static/audio/red_hood.m4a",
-    "route": [
-    {"t": 0, "x": 10, "y": 10, "event": "Начало: Описание Красной Шапочки"},
-    {"t": 72000, "x": 40, "y": 50, "event": "Дом: Мама дает корзинку (1:12)"},
-    {"t": 126000, "x": 100, "y": 120, "event": "Лес: Встреча с Волком (2:06)"},
-    {"t": 180000, "x": 180, "y": 80, "event": "Поляна: Сбор цветов (3:00)"},
-    {"t": 240000, "x": 250, "y": 200, "event": "Домик бабушки: Прибытие (4:00)"},
-    {"t": 310000, "x": 280, "y": 280, "event": 'Кульминация: "Почему такие зубы?" (5:10)'},
-    {"t": 348000, "x": 300, "y": 300, "event": "Финал: Спасение (5:48)"}
-    ]
-}
+# Функция для работы с сессией базы
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-# Подключаем раздачу статических файлов (аудио)
-#directory="static" означает, что файлы лежат в папке static в корне проекта
+
+# Подключаем папку со звуком
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Эндпоинт для получения данных сказки
 @app.get("/red-hood")
-def get_story():
-    return STORY
+def get_story(db: Session = Depends(get_db)):
+# Вытаскиваем сказку и все её точки из базы
+    story_db = db.query(Story).filter(Story.id == 1).first()
+    points_db = db.query(RoutePoint).filter(RoutePoint.story_id == 1).order_by(RoutePoint.t).all()
+
+ # Формируем ответ для "доски"
+    return {
+        "title": story_db.title,
+        "description": story_db.description,
+        "audio_url": story_db.audio_url,
+        "route": [
+            {
+                "t": p.t,
+                "x": p.x,
+                "y": p.y,
+                "event": p.event
+            } for p in points_db
+        ]
+    }
