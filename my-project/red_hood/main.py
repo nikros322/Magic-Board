@@ -1,15 +1,34 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from database import SessionLocal, Story, RoutePoint
+
+from database import SessionLocal, Story
+import schemas
 
 app = FastAPI(
-    title="Сказка Красная Шапочка",
-    description="API с данными из PostgreSQL",
-    version="1.1.0"
+    title="Сказка Красная Шапочка API",
+    description="Финальная версия 2-го спринта с БД и CORS",
+    version="1.2.0"
 )
 
-# Функция для работы с сессией базы
+# НАСТРОЙКА CORS
+origins = [
+    "http://localhost:3000",    # React
+    "http://localhost:5173",    # Vite/Frontend
+    "http://127.0.0.1:5173",
+    "*"                         # Разрешить всем
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Разрешаем все методы (GET, POST и т.д.)
+    allow_headers=["*"],
+)
+
+# ИНЪЕКЦИЯ ЗАВИСИМОСТИ
 def get_db():
     db = SessionLocal()
     try:
@@ -17,27 +36,17 @@ def get_db():
     finally:
         db.close()
 
-
-# Подключаем папку со звуком
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.get("/red-hood")
+# РЕФАКТОРИНГ ЭНДПОИНТА
+@app.get("/red-hood", response_model=schemas.StoryRead)
 def get_story(db: Session = Depends(get_db)):
-# Вытаскиваем сказку и все её точки из базы
+    # Запрос в реальную базу через SQLAlchemy
     story_db = db.query(Story).filter(Story.id == 1).first()
-    points_db = db.query(RoutePoint).filter(RoutePoint.story_id == 1).order_by(RoutePoint.t).all()
 
- # Формируем ответ для "доски"
-    return {
-        "title": story_db.title,
-        "description": story_db.description,
-        "audio_url": story_db.audio_url,
-        "route": [
-            {
-                "t": p.t,
-                "x": p.x,
-                "y": p.y,
-                "event": p.event
-            } for p in points_db
-        ]
-    }
+    if not story_db:
+        raise HTTPException(status_code=404, detail="Сказка не найдена")
+
+    # Мапим точки в поле route для фронта
+    story_db.route = story_db.points
+    return story_db
