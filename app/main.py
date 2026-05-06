@@ -1,15 +1,13 @@
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routers import stories
+from app.routers.stories import router as stories_router
 
 app = FastAPI(
     title="Magic Board API",
-    description="Backend для интерактивной карты-плеера детских сказок",
-    version="1.3.0",
-    debug=settings.debug,
+    version="1.0.0",
 )
 
 app.add_middleware(
@@ -21,15 +19,16 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.include_router(stories.router)
+
+app.include_router(stories_router)
 
 
-@app.get("/health", tags=["system"])
+@app.get("/")
+def root():
+    return {
+        "message": "Magic Board API is running",
+        "docs": "/docs",
+    }
+@app.get("/health")
 def health_check():
     return {"status": "ok"}
-
-
-@app.get("/red-hood", response_model=stories.StoryRead, tags=["stories"])
-def get_red_hood_story(db=Depends(stories.get_db)):
-    # Совместимость со старым фронтендом: раньше была только сказка с id=1.
-    return stories.get_story(story_id=1, db=db)
